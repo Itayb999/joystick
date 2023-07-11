@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Servo Control</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    .joystick {
+      width: 200px;
+      height: 200px;
+      border: 1px solid black;
+      border-radius: 50%;
+      position: relative;
+      margin: 20px;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .joystick-handle {
+      width: 50px;
+      height: 50px;
+      background-color: #2196f3;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s ease-out;
+    }
+  </style>
+  <script>
+    var joystickHandle;
+    var joystickSize;
+    var joystickCenterX;
+    var joystickCenterY;
+
+    function initializeJoystick() {
+      joystickHandle = document.getElementById("joystick-handle");
+      joystickSize = document.getElementById("joystick").offsetWidth;
+      joystickCenterX = joystickSize / 2;
+      joystickCenterY = joystickSize / 2;
+
+      joystickHandle.addEventListener("mousedown", startDrag);
+      joystickHandle.addEventListener("touchstart", startDrag);
+      document.addEventListener("mouseup", endDrag);
+      document.addEventListener("touchend", endDrag);
+      document.addEventListener("mousemove", drag);
+      document.addEventListener("touchmove", drag);
+    }
+
+    function startDrag(e) {
+      e.preventDefault();
+      if (e.type === "touchstart") {
+        var touch = e.touches[0];
+        joystickHandle.style.transition = "none";
+        joystickHandle.style.transform = `translate(${touch.pageX - joystickCenterX}px, ${touch.pageY - joystickCenterY}px)`;
+      } else if (e.type === "mousedown") {
+        joystickHandle.style.transition = "none";
+        joystickHandle.style.transform = `translate(${e.pageX - joystickCenterX}px, ${e.pageY - joystickCenterY}px)`;
+      }
+    }
+
+    function endDrag(e) {
+      e.preventDefault();
+      joystickHandle.style.transition = "transform 0.1s ease-out";
+      joystickHandle.style.transform = "translate(-50%, -50%)";
+      sendJoystickData();
+    }
+
+    function drag(e) {
+      e.preventDefault();
+      if (e.type === "touchmove") {
+        var touch = e.touches[0];
+        var posX = touch.pageX - joystickCenterX;
+        var posY = touch.pageY - joystickCenterY;
+        updateHandlePosition(posX, posY);
+      } else if (e.type === "mousemove") {
+        var posX = e.pageX - joystickCenterX;
+        var posY = e.pageY - joystickCenterY;
+        updateHandlePosition(posX, posY);
+      }
+    }
+
+    function updateHandlePosition(posX, posY) {
+      var distance = Math.sqrt(posX * posX + posY * posY);
+      if (distance <= joystickSize / 2) {
+        joystickHandle.style.transform = `translate(${posX}px, ${posY}px)`;
+      } else {
+        var angle = Math.atan2(posY, posX);
+        var limitedX = Math.cos(angle) * (joystickSize / 2);
+        var limitedY = Math.sin(angle) * (joystickSize / 2);
+        joystickHandle.style.transform = `translate(${limitedX}px, ${limitedY}px)`;
+      }
+    }
+
+    function sendJoystickData() {
+      var posX = parseInt(joystickHandle.style.transform.split("(")[1].split("px,")[0]);
+      var posY = parseInt(joystickHandle.style.transform.split(", ")[1].split("px)")[0]);
+
+      // Convert the position to servo angles based on your desired range
+      var servo1Angle = map(posX, -joystickSize / 2, joystickSize / 2, 0, 180);
+      var servo2Angle = map(posY, -joystickSize / 2, joystickSize / 2, 0, 180);
+
+      sendCommand(1, servo1Angle);
+      sendCommand(2, servo2Angle);
+    }
+
+    function sendCommand(servo, angle) {
+      var url = "/control?servo=" + servo + "&angle=" + angle;
+      $.get(url);
+    }
+
+    function map(value, inMin, inMax, outMin, outMax) {
+      return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+    }
+
+    document.addEventListener("DOMContentLoaded", initializeJoystick);
+  </script>
+</head>
+<body>
+  <h1>Servo Control</h1>
+  <div class="joystick" id="joystick">
+    <div class="joystick-handle" id="joystick-handle"></div>
+  </div>
+</body>
+</html>
